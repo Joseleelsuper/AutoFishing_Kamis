@@ -44,7 +44,7 @@ Init() {
     Config.TimerInterval := 20            ; ms entre ciclos de comprobación
     Config.TimeoutMs := 20000             ; ms para cancelar si no aparece el segundo píxel
     Config.Tolerance := { primary: 12     ; tolerancia para colores principales (inicio/fin/reset)
-                        , arrow: 15 }     ; tolerancia para colores del minijuego (flechas)
+        , arrow: 15 }     ; tolerancia para colores del minijuego (flechas)
 
     ; -- Parámetros de recasteo (reintento tras timeout)
     Config.Recast := {}
@@ -56,10 +56,10 @@ Init() {
 
     ; -- Colores objetivo (0xRRGGBB)
     Config.Colors := { start: 0xFF5501    ; Píxel que indica que hay que mantener click
-                     , finish: 0xE8E8E8   ; Píxel que indica que hay que soltar y confirmar
-                     , reset:  0x767C82   ; Píxel que activa flujo de reinicio
-                     , arrowA: 0xFE6C06   ; Color para flecha A
-                     , arrowD: 0xFF5A01 } ; Color para flecha D
+        , finish: 0xE8E8E8   ; Píxel que indica que hay que soltar y confirmar
+        , reset:  0x767C82   ; Píxel que activa flujo de reinicio
+        , arrowA: 0xFE6C06   ; Color para flecha A
+        , arrowD: 0xFF5A01 } ; Color para flecha D
 
     ; -- Coordenadas base (en 1920x1080). Todas se escalarán al iniciar.
     Config.PointsBase := {}
@@ -73,7 +73,7 @@ Init() {
     ; -- Medir pantalla actual y calcular escala X/Y de forma independiente
     Config.Screen := { w: A_ScreenWidth, h: A_ScreenHeight }
     Config.Scale := { x: (Config.Screen.w + 0.0) / Config.Base.w
-                    , y: (Config.Screen.h + 0.0) / Config.Base.h }
+        , y: (Config.Screen.h + 0.0) / Config.Base.h }
 
     ; -- Precalcular coordenadas escaladas para evitar recomputar en cada ciclo
     Config.Points := {}
@@ -83,7 +83,6 @@ Init() {
         Config.Points[key] := { x: sx, y: sy }
     }
 
-    
     ; -- Flag para habilitar/deshabilitar logs
     Config.LoggingEnabled := true
     ; -- Ruta de log
@@ -110,7 +109,7 @@ OnExit("OnExitHandler")
 ;  Hotkey de activación
 ; ============================
 F9::
-ToggleAutomation()
+    ToggleAutomation()
 return
 
 ToggleAutomation() {
@@ -377,8 +376,8 @@ ColorCloseEnough(color1, color2, tolerance := 10) {
     c2g := (color2 >> 8)    & 0xFF
     c2b :=  color2          & 0xFF
     return ( Abs(c1r - c2r) <= tolerance
-          && Abs(c1g - c2g) <= tolerance
-          && Abs(c1b - c2b) <= tolerance )
+        && Abs(c1g - c2g) <= tolerance
+        && Abs(c1b - c2b) <= tolerance )
 }
 
 ; Libera todos los recursos de estado al desactivar.
@@ -399,7 +398,7 @@ F10::
     Log("EXIT", "F10 presionado -> Saliendo")
     SetTimer, CheckPixels, Off
     SafeReleaseAll()
-    ExitApp
+ExitApp
 return
 
 ; ============================
