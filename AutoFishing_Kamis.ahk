@@ -46,29 +46,33 @@ Init() {
     Config.Tolerance := { primary: 12     ; tolerancia para colores principales (inicio/fin/reset)
         , arrow: 15 }     ; tolerancia para colores del minijuego (flechas)
 
-    ; -- Parámetros de recasteo (reintento tras timeout)
-    Config.Recast := {}
-    Config.Recast.maxAttempts := 8            ; número máximo de intentos de recasteo
-    Config.Recast.waitAfterCastMs := 1200     ; espera tras lanzar la caña antes de buscar START
-    Config.Recast.detectionWindowMs := 10000  ; ventana para detectar START por intento
-    Config.Recast.pollIntervalMs := 30        ; intervalo de sondeo de color
-    Config.Recast.interAttemptDelayMs := 400  ; pausa entre intentos
+    ; -- Tiempos de espera (centralizados para fácil ajuste)
+    Config.Timings := {}
+    Config.Timings.clickDelay := 10              ; espera antes/después de clicks críticos
+    Config.Timings.resetMenuOpen := 100          ; espera antes de enviar 'm' en reset
+    Config.Timings.resetMenuWait := 300          ; espera tras 'm' antes del primer clic
+    Config.Timings.resetMenuConfirm := 500       ; espera entre clics del menú reset
+    Config.Timings.finishBeforeConfirm := 1000   ; espera tras soltar antes de confirmar
+    Config.Timings.finishBetweenClicks := 500    ; espera entre confirmaciones finales
+    Config.Timings.continueCheckDelay := 800     ; espera antes de comprobar botón continuar
 
     ; -- Colores objetivo (0xRRGGBB)
-    Config.Colors := { start: 0xFF5501    ; Píxel que indica que hay que mantener click
-        , finish: 0xE8E8E8   ; Píxel que indica que hay que soltar y confirmar
-        , reset:  0x767C82   ; Píxel que activa flujo de reinicio
-        , arrowA: 0xFE6C06   ; Color para flecha A
-        , arrowD: 0xFF5A01 } ; Color para flecha D
+    Config.Colors := { start: 0xFF5501           ; Píxel que indica que hay que mantener click
+        , finish: 0xE8E8E8          ; Píxel que indica que hay que soltar y confirmar
+        , reset:  0x767C82          ; Píxel que activa flujo de reinicio
+        , continueFishing: 0xE8E8E8 ; Botón "continuar pescando" (mismo que finish típicamente)
+        , arrowA: 0xFE6C06          ; Color para flecha A
+        , arrowD: 0xFF5A01 }        ; Color para flecha D
 
     ; -- Coordenadas base (en 1920x1080). Todas se escalarán al iniciar.
     Config.PointsBase := {}
-    Config.PointsBase.centerHold   := { x:  954, y:  562 }  ; Dónde mantener click para iniciar
-    Config.PointsBase.finish       := { x: 1463, y:  974 }  ; Píxel y botón de confirmación final
-    Config.PointsBase.resetCheck   := { x: 1650, y: 1029 }  ; Píxel que indica necesidad de reinicio
-    Config.PointsBase.menuConfirm1 := { x: 1788, y:  609 }  ; Botón a pulsar tras 'm' (dos clics)
-    Config.PointsBase.arrowA       := { x:  851, y:  528 }  ; Detección flecha A
-    Config.PointsBase.arrowD       := { x: 1054, y:  536 }  ; Detección flecha D
+    Config.PointsBase.centerHold      := { x:  954, y:  562 }  ; Dónde mantener click para iniciar
+    Config.PointsBase.finish          := { x: 1463, y:  974 }  ; Píxel y botón de confirmación final
+    Config.PointsBase.continueFishing := { x: 1463, y:  974 }  ; Botón "continuar pescando" (suele coincidir con finish)
+    Config.PointsBase.resetCheck      := { x: 1650, y: 1029 }  ; Píxel que indica necesidad de reinicio
+    Config.PointsBase.menuConfirm1    := { x: 1788, y:  609 }  ; Botón a pulsar tras 'm' (dos clics)
+    Config.PointsBase.arrowA          := { x:  851, y:  528 }  ; Detección flecha A
+    Config.PointsBase.arrowD          := { x: 1054, y:  536 }  ; Detección flecha D
 
     ; -- Medir pantalla actual y calcular escala X/Y de forma independiente
     Config.Screen := { w: A_ScreenWidth, h: A_ScreenHeight }
@@ -150,12 +154,12 @@ CheckPixelsLogic() {
         State.holdStart := 0
         ReleaseKeyIfAny()
 
-        Sleep, 100
+        Sleep, % Config.Timings.resetMenuOpen
         Send, m
-        Sleep, 300
+        Sleep, % Config.Timings.resetMenuWait
         MoveMouseTo("menuConfirm1")
         Click, left
-        Sleep, 500
+        Sleep, % Config.Timings.resetMenuConfirm
         Click, left
 
         RestoreMousePosition()
@@ -167,7 +171,7 @@ CheckPixelsLogic() {
     if (!State.holding && ColorCloseEnough(startRead, Config.Colors.start, Config.Tolerance.primary)) {
         SaveMousePositionOnce()
         MoveMouseTo("centerHold")
-        Sleep, 10
+        Sleep, % Config.Timings.clickDelay
         Click, down, left
         State.holding := true
         State.holdStart := A_TickCount
@@ -177,7 +181,7 @@ CheckPixelsLogic() {
     ; -- 3) Detectar segundo píxel (soltar y confirmar)
     if (State.holding && ColorCloseEnough(finishRead, Config.Colors.finish, Config.Tolerance.primary)) {
         MoveMouseTo("finish")
-        Sleep, 10
+        Sleep, % Config.Timings.clickDelay
         Click, up, left
         State.holding := false
         State.holdStart := 0
@@ -185,9 +189,9 @@ CheckPixelsLogic() {
         ReleaseKeyIfAny()
 
         ; Confirmaciones posteriores
-        Sleep, 1000
+        Sleep, % Config.Timings.finishBeforeConfirm
         ClickAt("finish")
-        Sleep, 500
+        Sleep, % Config.Timings.finishBetweenClicks
         ClickAt("finish")
 
         RestoreMousePosition()
@@ -203,13 +207,27 @@ CheckPixelsLogic() {
 
         ReleaseKeyIfAny()
 
-        ; Reintentar tirar la caña hasta detectar START
-        Log("WARN", "TIMEOUT sin FINISH tras " . elapsed . " ms -> Reintentando tirar la caña")
-        success := RecastUntilStart()
-        if (!success) {
+        ; Antes de recastear, verificar si hay botón "continuar pescando"
+        Log("WARN", "TIMEOUT sin FINISH tras " . elapsed . " ms -> Verificando botón continuar")
+        Sleep, % Config.Timings.continueCheckDelay
+        
+        continueColor := GetColorAtPoint(Config.Points.continueFishing)
+        if (ColorCloseEnough(continueColor, Config.Colors.continueFishing, Config.Tolerance.primary)) {
+            Log("INFO", "Botón 'continuar pescando' detectado -> Pulsando")
+            ClickAt("continueFishing")
+            Sleep, % Config.Timings.finishBetweenClicks
+            ClickAt("continueFishing")
             RestoreMousePosition()
-            Log("ERROR", "No se pudo detectar START tras reintentos de recasteo")
+            return
         }
+
+        ; Si no hay botón continuar, hacer recast y dejar que el timer siga detectando
+        Log("WARN", "No se detectó botón continuar -> Haciendo recast")
+        MoveMouseTo("centerHold")
+        Click, left
+        RestoreMousePosition()
+        Log("INFO", "Recast ejecutado -> El timer detectará START en próximos ciclos")
+        return
     }
 
     ; -- 5) Minijuego de flechas (solo mientras se mantiene el click)
@@ -266,8 +284,9 @@ ClickAt(pointName) {
 
 ; Suelta el click en un punto determinado (por seguridad antes de soltar).
 ReleaseHoldAt(pointName) {
+    global Config
     MoveMouseTo(pointName)
-    Sleep, 10
+    Sleep, % Config.Timings.clickDelay
     Click, up, left
     Log("INFO", "Hold liberado en " . pointName)
 }
@@ -306,65 +325,6 @@ GetColorAtPoint(pt) {
 GetColorAtXY(x, y) {
     PixelGetColor, color, %x%, %y%, RGB
     return color
-}
-
-; Espera hasta que aparezca el píxel START durante un tiempo máximo.
-; Devuelve true si se detecta, false si expira.
-WaitForStartPixel(timeoutMs) {
-    global Config
-    startTick := A_TickCount
-    loop {
-        ; leer color actual en el punto de START
-        color := GetColorAtPoint(Config.Points.centerHold)
-        if (ColorCloseEnough(color, Config.Colors.start, Config.Tolerance.primary))
-            return true
-
-        if (A_TickCount - startTick >= timeoutMs)
-            break
-
-        Sleep, % Config.Recast.pollIntervalMs
-    }
-    return false
-}
-
-; Repite el lanzamiento de la caña hasta detectar el píxel START.
-; Si detecta START, comienza a mantener el click y devuelve true. Si no, devuelve false.
-RecastUntilStart() {
-    global Config, State
-
-    SaveMousePositionOnce()
-
-    attempts := Config.Recast.maxAttempts
-    Loop, %attempts% {
-        i := A_Index
-        Log("INFO", "Reintento de lanzamiento #" . i)
-
-        ; Lanzar la caña (clic simple)
-        MoveMouseTo("centerHold")
-        Click, left
-
-        ; Esperar un poco tras el lanzamiento antes de buscar START
-        Sleep, % Config.Recast.waitAfterCastMs
-
-        ; Ventana de detección para START en este intento
-        if (WaitForStartPixel(Config.Recast.detectionWindowMs)) {
-            ; En cuanto veamos START, comenzamos el hold si aún no lo estamos
-            if (!State.holding) {
-                MoveMouseTo("centerHold")
-                Sleep, 10
-                Click, down, left
-                State.holding := true
-                State.holdStart := A_TickCount
-                Log("INFO", "START detectado tras recasteo -> Manteniendo click")
-            }
-            return true
-        }
-
-        ; Si no se detectó, pequeña pausa y reintento
-        Sleep, % Config.Recast.interAttemptDelayMs
-    }
-
-    return false
 }
 
 ; Comparación de colores con tolerancia por canal (R, G, B).
