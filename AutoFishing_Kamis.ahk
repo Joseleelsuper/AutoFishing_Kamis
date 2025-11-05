@@ -55,12 +55,14 @@ Init() {
     Config.Timings.finishBeforeConfirm := 1000   ; espera tras soltar antes de confirmar
     Config.Timings.finishBetweenClicks := 500    ; espera entre confirmaciones finales
     Config.Timings.continueCheckDelay := 800     ; espera antes de comprobar botón continuar
+    Config.Timings.tensionRelease := 1000        ; tiempo de release cuando tensión llega al 100%
 
     ; -- Colores objetivo (0xRRGGBB)
     Config.Colors := { start: 0xFF5501           ; Píxel que indica que hay que mantener click
         , finish: 0xE8E8E8          ; Píxel que indica que hay que soltar y confirmar
         , reset:  0x767C82          ; Píxel que activa flujo de reinicio
         , continueFishing: 0xE8E8E8 ; Botón "continuar pescando" (mismo que finish típicamente)
+        , tensionMax: 0xFFFFFF      ; Barra de tensión al 100% (blanco puro)
         , arrowA: 0xFE6C06          ; Color para flecha A
         , arrowD: 0xFF5A01 }        ; Color para flecha D
 
@@ -71,6 +73,7 @@ Init() {
     Config.PointsBase.continueFishing := { x: 1463, y:  974 }  ; Botón "continuar pescando" (suele coincidir con finish)
     Config.PointsBase.resetCheck      := { x: 1650, y: 1029 }  ; Píxel que indica necesidad de reinicio
     Config.PointsBase.menuConfirm1    := { x: 1788, y:  609 }  ; Botón a pulsar tras 'm' (dos clics)
+    Config.PointsBase.tensionBar      := { x: 1248, y:  897 }  ; Final de la barra de tensión (extremo derecho)
     Config.PointsBase.arrowA          := { x:  851, y:  528 }  ; Detección flecha A
     Config.PointsBase.arrowD          := { x: 1054, y:  536 }  ; Detección flecha D
 
@@ -99,6 +102,8 @@ Init() {
     State.origX := 0               ; Posición original del ratón (X)
     State.origY := 0               ; Posición original del ratón (Y)
     State.currentKey := ""         ; "a" o "d" según minijuego; vacío si nada
+    State.tensionReleasing := false ; ¿Está en proceso de release temporal por tensión 100%?
+    State.tensionReleaseStart := 0  ; Marca de tiempo cuando se soltó por tensión
 
     Log("INFO", "Init completado | Screen=" . Config.Screen.w . "x" . Config.Screen.h . ", ScaleX=" . Config.Scale.x . ", ScaleY=" . Config.Scale.y)
 }
@@ -230,8 +235,38 @@ CheckPixelsLogic() {
         return
     }
 
-    ; -- 5) Minijuego de flechas (solo mientras se mantiene el click)
-    if (State.holding) {
+    ; -- 5) Gestión de tensión al 100% (release temporal)
+    if (State.tensionReleasing) {
+        ; Esperando a que pase el tiempo de release para volver a pulsar
+        if (A_TickCount - State.tensionReleaseStart >= Config.Timings.tensionRelease) {
+            MoveMouseTo("centerHold")
+            Sleep, % Config.Timings.clickDelay
+            Click, down, left
+            State.holding := true
+            State.holdStart := A_TickCount
+            State.tensionReleasing := false
+            State.tensionReleaseStart := 0
+            Log("INFO", "Tensión normalizada -> Click reanudado tras release temporal")
+        }
+    }
+
+    ; -- 6) Detectar tensión al 100% mientras se mantiene el click
+    if (State.holding && !State.tensionReleasing) {
+        tensionColor := GetColorAtPoint(Config.Points.tensionBar)
+        if (ColorCloseEnough(tensionColor, Config.Colors.tensionMax, Config.Tolerance.primary)) {
+            Log("WARN", "Tensión al 100% detectada -> Soltando click temporalmente")
+            MoveMouseTo("centerHold")
+            Sleep, % Config.Timings.clickDelay
+            Click, up, left
+            State.holding := false
+            State.tensionReleasing := true
+            State.tensionReleaseStart := A_TickCount
+            return
+        }
+    }
+
+    ; -- 7) Minijuego de flechas (mientras se mantiene el click O durante release por tensión)
+    if (State.holding || State.tensionReleasing) {
         colorA := GetColorAtPoint(Config.Points.arrowA)
         colorD := GetColorAtPoint(Config.Points.arrowD)
 
@@ -349,6 +384,8 @@ SafeReleaseAll() {
         Log("INFO", "SafeReleaseAll: hold activo liberado")
     }
     State.holdStart := 0
+    State.tensionReleasing := false
+    State.tensionReleaseStart := 0
     ReleaseKeyIfAny()
     RestoreMousePosition()
     Log("INFO", "SafeReleaseAll: estado limpiado")

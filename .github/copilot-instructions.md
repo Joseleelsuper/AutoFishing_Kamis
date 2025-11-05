@@ -7,11 +7,11 @@ Este proyecto es un script de AutoHotkey v1 para automatizar la pesca de un jueg
 - Archivo principal: `AutoFishing_Kamis.ahk`.
 - Estructura:
 	- `Config` (global): parámetros base (resolución de referencia 1920x1080), tolerancias, colores, puntos base, escala por pantalla, timings centralizados, logging.
-	- `Config.Timings`: todos los `Sleep` centralizados (clickDelay, resetMenuOpen, finishBeforeConfirm, etc.) para fácil ajuste sin tocar la lógica.
-	- `State` (global): flags de ejecución (toggle, holding), tiempos (holdStart), posición original del ratón, tecla activa del minijuego.
+	- `Config.Timings`: todos los `Sleep` centralizados (clickDelay, resetMenuOpen, finishBeforeConfirm, tensionRelease, etc.) para fácil ajuste sin tocar la lógica.
+	- `State` (global): flags de ejecución (toggle, holding, tensionReleasing), tiempos (holdStart, tensionReleaseStart), posición original del ratón, tecla activa del minijuego.
 	- `Init()`: calcula `Config.Scale` con la resolución actual y precalcula `Config.Points` escalados desde `Config.PointsBase` (x,y por punto en 1920x1080).
 	- Bucle: `SetTimer` llama `CheckPixelsLogic()` cada `Config.TimerInterval` ms.
-	- Flujo en `CheckPixelsLogic()` (orden): RESET → START (mantener click) → FINISH (soltar y confirmar) → TIMEOUT de seguridad (verifica botón "continuar pescando" antes de recast) → minijuego de flechas (A/D).
+	- Flujo en `CheckPixelsLogic()` (orden): RESET → START (mantener click) → FINISH (soltar y confirmar) → TIMEOUT de seguridad (verifica botón "continuar pescando" antes de recast) → gestión de tensión 100% (release temporal) → minijuego de flechas (A/D).
 	- Logging: `Log(type, msg)` a `AutoFishing_Kamis.log` (en el mismo directorio), activable con `Config.LoggingEnabled`.
 
 ### Atajos y controles
@@ -20,13 +20,14 @@ Este proyecto es un script de AutoHotkey v1 para automatizar la pesca de un jueg
 
 ### Flujos y patrones clave del proyecto
 - Detección por color: siempre con `ColorCloseEnough(actual, objetivo, toleranciaPorCanal)`. Tolerancias:
-	- `Config.Tolerance.primary` para START/FINISH/RESET/continueFishing.
+	- `Config.Tolerance.primary` para START/FINISH/RESET/continueFishing/tensionMax.
 	- `Config.Tolerance.arrow` para flechas A/D.
 - Coordenadas: declara en `Config.PointsBase` (en 1920x1080) y deja que `Init()` genere `Config.Points` escalados. Evita usar coordenadas absolutas directas en el flujo.
 - Botón "continuar pescando": tras TIMEOUT, antes de recastear, el script verifica si hay botón de continuar (suele aparecer cuando el pez se escapa). Si se detecta, se pulsa; si no, se procede al recast.
 - Recast simple: tras timeout sin botón continuar, el script hace UN click de recast y deja que el timer principal siga detectando START normalmente. **No usar bucles bloqueantes** que impidan al timer funcionar.
+- Gestión de tensión 100%: detecta cuando la barra de tensión (blanco puro 0xFFFFFF) alcanza el 100%. Al detectarlo, suelta el click temporalmente durante `Config.Timings.tensionRelease` (1000ms por defecto) y luego lo vuelve a pulsar automáticamente. Usa `State.tensionReleasing` para controlar este estado temporal.
 - Minijuego: usa `SendKeyDown("a"|"d")` y `ReleaseKeyIfAny()` para garantizar que solo una tecla esté pulsada a la vez.
-- Timings: todos los `Sleep` están en `Config.Timings` (clickDelay, resetMenuOpen, finishBeforeConfirm, continueCheckDelay, etc.). Modifica ahí para ajustar velocidades sin tocar lógica.
+- Timings: todos los `Sleep` están en `Config.Timings` (clickDelay, resetMenuOpen, finishBeforeConfirm, continueCheckDelay, tensionRelease, etc.). Modifica ahí para ajustar velocidades sin tocar lógica.
 
 ### Ejemplos concretos (cómo extender sin romper)
 - Añadir un nuevo punto/color a detectar:
