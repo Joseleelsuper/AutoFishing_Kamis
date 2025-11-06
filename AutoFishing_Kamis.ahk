@@ -63,6 +63,7 @@ Init() {
         , reset:  0x767C82          ; Píxel que activa flujo de reinicio
         , continueFishing: 0xE8E8E8 ; Botón "continuar pescando" (mismo que finish típicamente)
         , tensionMax: 0xFFFFFF      ; Barra de tensión al 100% (blanco puro)
+        , rewardBorder: 0xC6A777    ; Borde dorado del popup de recompensa mensual
         , arrowA: 0xFE6C06          ; Color para flecha A
         , arrowD: 0xFF5A01 }        ; Color para flecha D
 
@@ -74,6 +75,9 @@ Init() {
     Config.PointsBase.resetCheck      := { x: 1650, y: 1029 }  ; Píxel que indica necesidad de reinicio
     Config.PointsBase.menuConfirm1    := { x: 1788, y:  609 }  ; Botón a pulsar tras 'm' (dos clics)
     Config.PointsBase.tensionBar      := { x: 1248, y:  897 }  ; Final de la barra de tensión (extremo derecho)
+    Config.PointsBase.rewardLeft      := { x:  649, y:  383 }  ; Lado izquierdo del popup de recompensa
+    Config.PointsBase.rewardRight     := { x: 1221, y:  383 }  ; Lado derecho del popup de recompensa
+    Config.PointsBase.rewardClose     := { x:  945, y:  972 }  ; Botón para cerrar popup de recompensa
     Config.PointsBase.arrowA          := { x:  851, y:  528 }  ; Detección flecha A
     Config.PointsBase.arrowD          := { x: 1054, y:  536 }  ; Detección flecha D
 
@@ -149,6 +153,18 @@ CheckPixelsLogic() {
     startRead  := GetColorAtPoint(Config.Points.centerHold)
     finishRead := GetColorAtPoint(Config.Points.finish)
     resetRead  := GetColorAtPoint(Config.Points.resetCheck)
+
+    ; -- 0) Detectar popup de recompensa mensual y cerrarlo
+    rewardLeftColor := GetColorAtPoint(Config.Points.rewardLeft)
+    rewardRightColor := GetColorAtPoint(Config.Points.rewardRight)
+    if (ColorCloseEnough(rewardLeftColor, Config.Colors.rewardBorder, Config.Tolerance.primary) 
+        && ColorCloseEnough(rewardRightColor, Config.Colors.rewardBorder, Config.Tolerance.primary)) {
+        Log("INFO", "Popup de recompensa mensual detectado -> Cerrando")
+        ClickAt("rewardClose")
+        Sleep, % Config.Timings.finishBetweenClicks
+        Log("INFO", "Popup de recompensa cerrado")
+        return
+    }
 
     ; -- 1) Flujo de reinicio si detecta el color de reset
     if (ColorCloseEnough(resetRead, Config.Colors.reset, Config.Tolerance.primary)) {
@@ -410,7 +426,7 @@ Log(type, msg) {
     ; Asegurar tipo en mayúsculas por consistencia
     StringUpper, type, type
     FormatTime, _date, , yy-MM-dd
-    FormatTime, _time, , HH-mm-ss
+    FormatTime, _time, , HH:mm:ss
     line := "[" . _date . "] [" . _time . "] [" . type . "] <" . msg . ">`r`n"
     FileAppend, % line, % Config.LogPath, UTF-8
 }
