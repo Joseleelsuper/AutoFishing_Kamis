@@ -51,7 +51,7 @@ Init() {
     Config.Timings.clickDelay := 10              ; espera antes/después de clicks críticos
     Config.Timings.resetMenuOpen := 100          ; espera antes de enviar 'm' en reset
     Config.Timings.resetMenuWait := 300          ; espera tras 'm' antes del primer clic
-    Config.Timings.resetMenuConfirm := 500       ; espera entre clics del menú reset
+    Config.Timings.resetMenuConfirm := 1500      ; espera entre clics del menú reset
     Config.Timings.finishBeforeConfirm := 1000   ; espera tras soltar antes de confirmar
     Config.Timings.finishBetweenClicks := 500    ; espera entre confirmaciones finales
     Config.Timings.continueCheckDelay := 800     ; espera antes de comprobar botón continuar
@@ -108,6 +108,7 @@ Init() {
     State.currentKey := ""         ; "a" o "d" según minijuego; vacío si nada
     State.tensionReleasing := false ; ¿Está en proceso de release temporal por tensión 100%?
     State.tensionReleaseStart := 0  ; Marca de tiempo cuando se soltó por tensión
+    State.lastCastAttempt := 0      ; Se reinicia cuando pica (START) o termina de pescar (FINISH)
 
     Log("INFO", "Init completado | Screen=" . Config.Screen.w . "x" . Config.Screen.h . ", ScaleX=" . Config.Scale.x . ", ScaleY=" . Config.Scale.y)
 }
@@ -131,11 +132,13 @@ ToggleAutomation() {
     if (State.toggle) {
         Log("INFO", "Toggle ON -> Iniciando timer (" . Config.TimerInterval . " ms)")
         Click, left
+        State.lastCastAttempt := A_TickCount
         SetTimer, CheckPixels, % Config.TimerInterval
     } else {
         Log("INFO", "Toggle OFF -> Deteniendo timer y liberando estado")
         SetTimer, CheckPixels, Off
         SafeReleaseAll()
+        State.lastCastAttempt := 0
     }
 }
 
@@ -188,18 +191,32 @@ CheckPixelsLogic() {
         return
     }
 
-    ; -- 2) Detectar primer píxel (empezar a mantener click)
+    ; -- 2) Watchdog: si han pasado 20s sin pescar ningún pez, lanzar caña
+    if (!State.holding && State.lastCastAttempt && (A_TickCount - State.lastCastAttempt > 20000)) {
+        Log("WARN", "Watchdog: 20s sin actividad de pesca -> lanzando caña")
+        SaveMousePositionOnce()
+        MoveMouseTo("centerHold")
+        Sleep, % Config.Timings.clickDelay
+        Click, left
+        State.lastCastAttempt := A_TickCount
+        RestoreMousePosition()
+    }
+
+    ; -- 3) Detectar primer píxel (empezar a mantener click = pica el pez)
     if (!State.holding && ColorCloseEnough(startRead, Config.Colors.start, Config.Tolerance.primary)) {
         SaveMousePositionOnce()
         MoveMouseTo("centerHold")
         Sleep, % Config.Timings.clickDelay
         Click, down, left
+
         State.holding := true
         State.holdStart := A_TickCount
+        State.lastCastAttempt := A_TickCount
+
         Log("INFO", "START detectado -> Manteniendo click en centerHold")
     }
 
-    ; -- 3) Detectar segundo píxel (soltar y confirmar)
+    ; -- 4) Detectar segundo píxel (soltar y confirmar = termina de pescar)
     if (State.holding && ColorCloseEnough(finishRead, Config.Colors.finish, Config.Tolerance.primary)) {
         MoveMouseTo("finish")
         Sleep, % Config.Timings.clickDelay
@@ -215,11 +232,13 @@ CheckPixelsLogic() {
         Sleep, % Config.Timings.finishBetweenClicks
         ClickAt("finish")
 
+        State.lastCastAttempt := A_TickCount
         RestoreMousePosition()
+        
         Log("INFO", "FINISH detectado -> Soltado y confirmaciones enviadas")
     }
 
-    ; -- 4) Timeout de seguridad si no aparece el segundo píxel
+    ; -- 5) Timeout de seguridad si no aparece el segundo píxel
     if (State.holding && (A_TickCount - State.holdStart > Config.TimeoutMs)) {
         ReleaseHoldAt("centerHold")
         State.holding := false
@@ -242,7 +261,7 @@ CheckPixelsLogic() {
             return
         }
 
-        ; Si no hay botón continuar, hacer recast y dejar que el timer siga detectando
+        ; Si no hay botón continuar, hacer recast
         Log("WARN", "No se detectó botón continuar -> Haciendo recast")
         MoveMouseTo("centerHold")
         Click, left
@@ -251,7 +270,7 @@ CheckPixelsLogic() {
         return
     }
 
-    ; -- 5) Gestión de tensión al 100% (release temporal)
+    ; -- 6) Gestión de tensión al 100% (release temporal)
     if (State.tensionReleasing) {
         ; Esperando a que pase el tiempo de release para volver a pulsar
         if (A_TickCount - State.tensionReleaseStart >= Config.Timings.tensionRelease) {
@@ -266,7 +285,7 @@ CheckPixelsLogic() {
         }
     }
 
-    ; -- 6) Detectar tensión al 100% mientras se mantiene el click
+    ; -- 7) Detectar tensión al 100% mientras se mantiene el click
     if (State.holding && !State.tensionReleasing) {
         tensionColor := GetColorAtPoint(Config.Points.tensionBar)
         if (ColorCloseEnough(tensionColor, Config.Colors.tensionMax, Config.Tolerance.primary)) {
@@ -281,7 +300,7 @@ CheckPixelsLogic() {
         }
     }
 
-    ; -- 7) Minijuego de flechas (mientras se mantiene el click O durante release por tensión)
+    ; -- 8) Minijuego de flechas
     if (State.holding || State.tensionReleasing) {
         colorA := GetColorAtPoint(Config.Points.arrowA)
         colorD := GetColorAtPoint(Config.Points.arrowD)
