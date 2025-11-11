@@ -54,7 +54,7 @@ Init() {
     Config.Timings.resetMenuConfirm := 1500      ; espera entre clics del menú reset
     Config.Timings.finishBeforeConfirm := 1000   ; espera tras soltar antes de confirmar
     Config.Timings.finishBetweenClicks := 500    ; espera entre confirmaciones finales
-    Config.Timings.continueCheckDelay := 800     ; espera antes de comprobar botón continuar
+    Config.Timings.continueCheckDelay := 1500    ; espera antes de comprobar botón continuar
     Config.Timings.tensionRelease := 1000        ; tiempo de release cuando tensión llega al 100%
 
     ; -- Colores objetivo (0xRRGGBB)
@@ -160,7 +160,7 @@ CheckPixelsLogic() {
     ; -- 0) Detectar popup de recompensa mensual y cerrarlo
     rewardLeftColor := GetColorAtPoint(Config.Points.rewardLeft)
     rewardRightColor := GetColorAtPoint(Config.Points.rewardRight)
-    if (ColorCloseEnough(rewardLeftColor, Config.Colors.rewardBorder, Config.Tolerance.primary) 
+    if (ColorCloseEnough(rewardLeftColor, Config.Colors.rewardBorder, Config.Tolerance.primary)
         && ColorCloseEnough(rewardRightColor, Config.Colors.rewardBorder, Config.Tolerance.primary)) {
         Log("INFO", "Popup de recompensa mensual detectado -> Cerrando")
         ClickAt("rewardClose")
@@ -234,7 +234,7 @@ CheckPixelsLogic() {
 
         State.lastCastAttempt := A_TickCount
         RestoreMousePosition()
-        
+
         Log("INFO", "FINISH detectado -> Soltado y confirmaciones enviadas")
     }
 
@@ -250,7 +250,7 @@ CheckPixelsLogic() {
         ; Antes de recastear, verificar si hay botón "continuar pescando"
         Log("WARN", "TIMEOUT sin FINISH tras " . elapsed . " ms -> Verificando botón continuar")
         Sleep, % Config.Timings.continueCheckDelay
-        
+
         continueColor := GetColorAtPoint(Config.Points.continueFishing)
         if (ColorCloseEnough(continueColor, Config.Colors.continueFishing, Config.Tolerance.primary)) {
             Log("INFO", "Botón 'continuar pescando' detectado -> Pulsando")
