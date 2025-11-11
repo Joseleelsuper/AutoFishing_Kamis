@@ -61,17 +61,20 @@ Init() {
     Config.Colors := { start: 0xFF5501           ; Píxel que indica que hay que mantener click
         , finish: 0xE8E8E8          ; Píxel que indica que hay que soltar y confirmar
         , reset:  0x767C82          ; Píxel que activa flujo de reinicio
-        , continueFishing: 0xE8E8E8 ; Botón "continuar pescando" (mismo que finish típicamente)
+        , continueFishing: 0xE8E8E8 ; Botón "continuar pescando"
         , tensionMax: 0xFFFFFF      ; Barra de tensión al 100% (blanco puro)
         , rewardBorder: 0xC6A777    ; Borde dorado del popup de recompensa mensual
         , arrowA: 0xFE6C06          ; Color para flecha A
         , arrowD: 0xFF5A01 }        ; Color para flecha D
 
+    ; -- Lista de posibles ejecutables del juego
+    Config.GameWindowExecutables := ["BPSR_STEAM.exe", "BPSR_EPIC.exe", "BPSR.exe"]
+
     ; -- Coordenadas base (en 1920x1080). Todas se escalarán al iniciar.
     Config.PointsBase := {}
     Config.PointsBase.centerHold      := { x:  954, y:  562 }  ; Dónde mantener click para iniciar
     Config.PointsBase.finish          := { x: 1463, y:  974 }  ; Píxel y botón de confirmación final
-    Config.PointsBase.continueFishing := { x: 1463, y:  974 }  ; Botón "continuar pescando" (suele coincidir con finish)
+    Config.PointsBase.continueFishing := { x: 1463, y:  974 }  ; Botón "continuar pescando"
     Config.PointsBase.resetCheck      := { x: 1650, y: 1029 }  ; Píxel que indica necesidad de reinicio
     Config.PointsBase.menuConfirm1    := { x: 1788, y:  609 }  ; Botón a pulsar tras 'm' (dos clics)
     Config.PointsBase.tensionBar      := { x: 1248, y:  897 }  ; Final de la barra de tensión (extremo derecho)
@@ -81,16 +84,19 @@ Init() {
     Config.PointsBase.arrowA          := { x:  851, y:  528 }  ; Detección flecha A
     Config.PointsBase.arrowD          := { x: 1054, y:  536 }  ; Detección flecha D
 
-    ; -- Medir pantalla actual y calcular escala X/Y de forma independiente
-    Config.Screen := { w: A_ScreenWidth, h: A_ScreenHeight }
-    Config.Scale := { x: (Config.Screen.w + 0.0) / Config.Base.w
-        , y: (Config.Screen.h + 0.0) / Config.Base.h }
+    ; -- Detectar ventana del juego y obtener dimensiones
+    DetectGameWindow()
 
-    ; -- Precalcular coordenadas escaladas para evitar recomputar en cada ciclo
+    ; -- Calcular escala basada en el tamaño de la ventana del juego
+    Config.Scale := { x: (Config.GameWindow.w + 0.0) / Config.Base.w
+        , y: (Config.GameWindow.h + 0.0) / Config.Base.h }
+
+    ; -- Precalcular coordenadas escaladas relativas a la ventana del juego
     Config.Points := {}
     for key, pt in Config.PointsBase {
-        sx := Round(pt.x * Config.Scale.x)
-        sy := Round(pt.y * Config.Scale.y)
+        ; Coordenadas escaladas + offset de la ventana
+        sx := Round(pt.x * Config.Scale.x) + Config.GameWindow.x
+        sy := Round(pt.y * Config.Scale.y) + Config.GameWindow.y
         Config.Points[key] := { x: sx, y: sy }
     }
 
@@ -110,7 +116,58 @@ Init() {
     State.tensionReleaseStart := 0  ; Marca de tiempo cuando se soltó por tensión
     State.lastCastAttempt := 0      ; Se reinicia cuando pica (START) o termina de pescar (FINISH)
 
-    Log("INFO", "Init completado | Screen=" . Config.Screen.w . "x" . Config.Screen.h . ", ScaleX=" . Config.Scale.x . ", ScaleY=" . Config.Scale.y)
+    Log("INFO", "Init completado | Ventana del juego: " . Config.GameWindow.w . "x" . Config.GameWindow.h . " en (" . Config.GameWindow.x . "," . Config.GameWindow.y . ") | ScaleX=" . Config.Scale.x . ", ScaleY=" . Config.Scale.y)
+}
+
+; Detecta la ventana del juego y guarda su posición y tamaño
+DetectGameWindow() {
+    global Config
+
+    hwnd := 0
+    detectedExe := ""
+
+    ; Intentar detectar la ventana con cada ejecutable posible
+    for index, exeName in Config.GameWindowExecutables {
+        WinGet, hwnd, ID, % "ahk_exe " . exeName
+        if (hwnd) {
+            detectedExe := exeName
+            Log("INFO", "Ventana del juego encontrada: " . exeName)
+            break
+        }
+    }
+
+    if (hwnd) {
+        ; Obtener posición y tamaño de la ventana
+        WinGetPos, wx, wy, ww, wh, % "ahk_id " . hwnd
+
+        ; Obtener el área cliente (sin bordes de ventana)
+        VarSetCapacity(rect, 16, 0)
+        DllCall("GetClientRect", "Ptr", hwnd, "Ptr", &rect)
+        clientW := NumGet(rect, 8, "Int")
+        clientH := NumGet(rect, 12, "Int")
+
+        ; Obtener offset del área cliente respecto a la ventana
+        VarSetCapacity(point, 8, 0)
+        DllCall("ClientToScreen", "Ptr", hwnd, "Ptr", &point)
+        clientX := NumGet(point, 0, "Int")
+        clientY := NumGet(point, 4, "Int")
+
+        Config.GameWindow := { x: clientX, y: clientY, w: clientW, h: clientH, exe: detectedExe }
+        Log("INFO", "Ventana del juego detectada (" . detectedExe . "): " . clientW . "x" . clientH . " en posición (" . clientX . "," . clientY . ")")
+    } else {
+        ; Si no se encuentra ninguna ventana, usar pantalla completa como fallback
+        Config.GameWindow := { x: 0, y: 0, w: A_ScreenWidth, h: A_ScreenHeight, exe: "ninguno" }
+
+        ; Construir lista de ejecutables buscados para el mensaje de log
+        exeList := ""
+        for index, exeName in Config.GameWindowExecutables {
+            exeList .= exeName
+            if (index < Config.GameWindowExecutables.Length())
+                exeList .= ", "
+        }
+
+        Log("WARN", "No se detectó la ventana del juego. Ejecutables buscados: " . exeList . " -> Usando pantalla completa como fallback")
+    }
 }
 
 ; Ejecutar inicialización al cargar el script
@@ -192,7 +249,7 @@ CheckPixelsLogic() {
     }
 
     ; -- 2) Watchdog: si han pasado 20s sin pescar ningún pez, lanzar caña
-    if (!State.holding && State.lastCastAttempt && (A_TickCount - State.lastCastAttempt > 20000)) {
+    if (!State.holding && State.lastCastAttempt && (A_TickCount - State.lastCastAttempt > Config.TimeoutMs)) {
         Log("WARN", "Watchdog: 20s sin actividad de pesca -> lanzando caña")
         SaveMousePositionOnce()
         MoveMouseTo("centerHold")
@@ -251,8 +308,20 @@ CheckPixelsLogic() {
         Log("WARN", "TIMEOUT sin FINISH tras " . elapsed . " ms -> Verificando botón continuar")
         Sleep, % Config.Timings.continueCheckDelay
 
-        continueColor := GetColorAtPoint(Config.Points.continueFishing)
-        if (ColorCloseEnough(continueColor, Config.Colors.continueFishing, Config.Tolerance.primary)) {
+        ; Intentar detectar el botón varias veces (hasta 3 intentos)
+        continueDetected := false
+        Loop, 10 {
+            continueColor := GetColorAtPoint(Config.Points.continueFishing)
+            Log("DEBUG", "Intento " . A_Index . "/3 - Color detectado en continueFishing: " . Format("0x{:06X}", continueColor) . " | Esperado: 0xE8E8E8")
+
+            if (ColorCloseEnough(continueColor, Config.Colors.continueFishing, Config.Tolerance.primary)) {
+                continueDetected := true
+                break
+            }
+            Sleep, % Config.Timings.continueCheckDelay
+        }
+
+        if (continueDetected) {
             Log("INFO", "Botón 'continuar pescando' detectado -> Pulsando")
             ClickAt("continueFishing")
             Sleep, % Config.Timings.finishBetweenClicks
@@ -262,7 +331,7 @@ CheckPixelsLogic() {
         }
 
         ; Si no hay botón continuar, hacer recast
-        Log("WARN", "No se detectó botón continuar -> Haciendo recast")
+        Log("WARN", "No se detectó botón continuar después de 3 intentos -> Haciendo recast")
         MoveMouseTo("centerHold")
         Click, left
         RestoreMousePosition()
