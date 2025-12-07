@@ -18,4 +18,4 @@ Para ejecutar el fichero .ahk necesitarás tener instalado [AutoHotkey v1.1.37.0
 
 ## Contacto
 
-Podéis encontrarme en Discord como Joseleelsuper, dentro de la [Guild Kamis](https://discord.gg/GW33AxmnnA).
+Podéis encontrarme en Discord como Joseleelsuper, dentro de la [Guild NoMercy](https://discord.gg/qfJ8hRFVSQ).

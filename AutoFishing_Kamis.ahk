@@ -10,7 +10,7 @@ SetWorkingDir %A_ScriptDir%
 ;   @description: Automatiza la pesca en un juego mediante detección de píxeles y manejo del ratón/teclado.
 ;   @author: Haru
 ;   @author: Joseleelsuper
-;   @bpsr_guild: Kamis [78542]
+;   @bpsr_guild: NoMercyII [52876]
 ;   @use
 ;       - Ve a pescar, tira el cebo y pulsa la tecla F9 para activar/desactivar la automatización.
 ;       - Pulsa la tecla F10 para detener el script completamente.
@@ -68,7 +68,7 @@ Init() {
         , arrowD: 0xFF5A01 }        ; Color para flecha D
 
     ; -- Lista de posibles ejecutables del juego
-    Config.GameWindowExecutables := ["BPSR_STEAM.exe", "BPSR_EPIC.exe", "BPSR.exe"]
+    Config.GameWindowExecutables := ["BPSR_STEAM.exe", "BPSR_EPIC.exe", "BPSR.exe", "BPSR"]
 
     ; -- Coordenadas base (en 1920x1080). Todas se escalarán al iniciar.
     Config.PointsBase := {}
