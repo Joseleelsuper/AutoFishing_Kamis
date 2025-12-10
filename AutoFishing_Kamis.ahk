@@ -64,8 +64,8 @@ Init() {
         , continueFishing: 0xE8E8E8 ; Botón "continuar pescando"
         , tensionMax: 0xFFFFFF      ; Barra de tensión al 100% (blanco puro)
         , rewardBorder: 0xC6A777    ; Borde dorado del popup de recompensa mensual
-        , arrowA: 0xFE6C06          ; Color para flecha A
-        , arrowD: 0xFF5A01 }        ; Color para flecha D
+        , arrowA: [0xFE6C06, 0xFAB916, 0xFF5601]  ; Colores para flecha A
+        , arrowD: [0xFF5A01, 0xFAB916, 0xFF5601] } ; Colores para flecha D
 
     ; -- Lista de posibles ejecutables del juego
     Config.GameWindowExecutables := ["BPSR_STEAM.exe", "BPSR_EPIC.exe", "BPSR.exe", "BPSR"]
@@ -232,7 +232,11 @@ CheckPixelsLogic() {
         if (State.holding)
             ReleaseHoldAt("centerHold")
 
+        ; Resetear TODOS los estados relacionados con holding/timeout
+        State.holding := false
         State.holdStart := 0
+        State.tensionReleasing := false
+        State.tensionReleaseStart := 0
         ReleaseKeyIfAny()
 
         Sleep, % Config.Timings.resetMenuOpen
@@ -374,9 +378,27 @@ CheckPixelsLogic() {
         colorA := GetColorAtPoint(Config.Points.arrowA)
         colorD := GetColorAtPoint(Config.Points.arrowD)
 
-        if (ColorCloseEnough(colorD, Config.Colors.arrowD, Config.Tolerance.arrow)) {
+        ; Probar todos los colores posibles para flecha D
+        arrowDDetected := false
+        for index, targetColor in Config.Colors.arrowD {
+            if (ColorCloseEnough(colorD, targetColor, Config.Tolerance.arrow)) {
+                arrowDDetected := true
+                break
+            }
+        }
+
+        ; Probar todos los colores posibles para flecha A
+        arrowADetected := false
+        for index, targetColor in Config.Colors.arrowA {
+            if (ColorCloseEnough(colorA, targetColor, Config.Tolerance.arrow)) {
+                arrowADetected := true
+                break
+            }
+        }
+
+        if (arrowDDetected) {
             SendKeyDown("d")
-        } else if (ColorCloseEnough(colorA, Config.Colors.arrowA, Config.Tolerance.arrow)) {
+        } else if (arrowADetected) {
             SendKeyDown("a")
         }
         ; Si ninguna flecha está presente, se mantiene la tecla actual (si la hubiera)
