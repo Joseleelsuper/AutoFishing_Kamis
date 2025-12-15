@@ -10,7 +10,7 @@ SetWorkingDir %A_ScriptDir%
 ;   @description: Automatiza la pesca en un juego mediante detección de píxeles y manejo del ratón/teclado.
 ;   @author: Haru
 ;   @author: Joseleelsuper
-;   @bpsr_guild: NoMercyII [52876]
+;   @bpsr_guild: HusaresAlados [1818]
 ;   @use
 ;       - Ve a pescar, tira el cebo y pulsa la tecla F9 para activar/desactivar la automatización.
 ;       - Pulsa la tecla F10 para detener el script completamente.
@@ -42,19 +42,22 @@ Init() {
 
     ; -- Temporizadores y tolerancias
     Config.TimerInterval := 20            ; ms entre ciclos de comprobación
-    Config.TimeoutMs := 20000             ; ms para cancelar si no aparece el segundo píxel
+    Config.TimeoutMs := 30000             ; ms para cancelar si no aparece el segundo píxel
     Config.Tolerance := { primary: 12     ; tolerancia para colores principales (inicio/fin/reset)
         , arrow: 15 }     ; tolerancia para colores del minijuego (flechas)
 
     ; -- Tiempos de espera (centralizados para fácil ajuste)
     Config.Timings := {}
     Config.Timings.clickDelay := 10              ; espera antes/después de clicks críticos
-    Config.Timings.resetMenuOpen := 100          ; espera antes de enviar 'm' en reset
-    Config.Timings.resetMenuWait := 300          ; espera tras 'm' antes del primer clic
+    Config.Timings.resetMenuOpen := 500          ; espera antes de enviar 'm' en reset
+    Config.Timings.resetMenuWait := 1000         ; espera tras 'm' antes del primer clic
     Config.Timings.resetMenuConfirm := 1500      ; espera entre clics del menú reset
     Config.Timings.finishBeforeConfirm := 1000   ; espera tras soltar antes de confirmar
     Config.Timings.finishBetweenClicks := 500    ; espera entre confirmaciones finales
     Config.Timings.continueCheckDelay := 1500    ; espera antes de comprobar botón continuar
+    Config.Timings.continueBeforeClick := 1000   ; espera después de detectar botón continuar antes de pulsar
+    Config.Timings.continueFishingWait := 1000   ; espera tras pulsar botón continuar antes de recast
+    Config.Timings.rewardPopupWait := 500        ; espera tras cerrar popup de recompensa
     Config.Timings.tensionRelease := 1000        ; tiempo de release cuando tensión llega al 100%
 
     ; -- Colores objetivo (0xRRGGBB)
@@ -221,7 +224,7 @@ CheckPixelsLogic() {
         && ColorCloseEnough(rewardRightColor, Config.Colors.rewardBorder, Config.Tolerance.primary)) {
         Log("INFO", "Popup de recompensa mensual detectado -> Cerrando")
         ClickAt("rewardClose")
-        Sleep, % Config.Timings.finishBetweenClicks
+        Sleep, % Config.Timings.rewardPopupWait
         Log("INFO", "Popup de recompensa cerrado")
         return
     }
@@ -326,10 +329,13 @@ CheckPixelsLogic() {
         }
 
         if (continueDetected) {
-            Log("INFO", "Botón 'continuar pescando' detectado -> Pulsando")
+            Log("INFO", "Botón 'continuar pescando' detectado -> Esperando antes de pulsar")
+            Sleep, % Config.Timings.continueBeforeClick
+            Log("INFO", "Pulsando botón 'continuar pescando'")
             ClickAt("continueFishing")
             Sleep, % Config.Timings.finishBetweenClicks
-            ClickAt("continueFishing")
+            Log("INFO", "Esperando tras pulsar 'continuar pescando' antes de lanzar caña")
+            Sleep, % Config.Timings.continueFishingWait
             RestoreMousePosition()
             return
         }
