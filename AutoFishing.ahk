@@ -6,7 +6,7 @@ SetWorkingDir %A_ScriptDir%
 ; ==============================================
 ;  AutoFishing
 ; ----------------------------------------------
-;   @name: AutoFishing_Kamis.ahk
+;   @name: AutoFishing.ahk
 ;   @description: Automatiza la pesca en un juego mediante detección de píxeles y manejo del ratón/teclado.
 ;   @author: Haru
 ;   @author: Joseleelsuper
