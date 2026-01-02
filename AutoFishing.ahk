@@ -106,7 +106,7 @@ Init() {
     ; -- Flag para habilitar/deshabilitar logs
     Config.LoggingEnabled := true
     ; -- Ruta de log
-    Config.LogPath := A_ScriptDir . "\AutoFishing_Kamis.log"
+    Config.LogPath := A_ScriptDir . "\AutoFishing.log"
 
     ; -- Estado en memoria
     State.toggle := false          ; Automatización activa/inactiva

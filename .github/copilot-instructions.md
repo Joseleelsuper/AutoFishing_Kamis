@@ -1,10 +1,10 @@
-## Guía para agentes de IA en este repo (AutoFishing_Kamis)
+## Guía para agentes de IA en este repo (AutoFishing)
 
 Este proyecto es un script de AutoHotkey v1 para automatizar la pesca de un juego vía detección de píxeles y control de ratón/teclado. Mantén estas pautas para ser productivo desde el primer minuto y no romper el flujo actual.
 
 ### Visión general y arquitectura
 - Lenguaje/Runtime: AutoHotkey v1 (no v2). El código usa comandos legacy (SetTimer con etiqueta, Click, Send), objetos AHK v1 y hotkeys F9/F10.
-- Archivo principal: `AutoFishing_Kamis.ahk`.
+- Archivo principal: `AutoFishing.ahk`.
 - Estructura:
 	- `Config` (global): parámetros base (resolución de referencia 1920x1080), tolerancias, colores, puntos base, escala por pantalla, timings centralizados, logging.
 	- `Config.Timings`: todos los `Sleep` centralizados (clickDelay, resetMenuOpen, finishBeforeConfirm, tensionRelease, etc.) para fácil ajuste sin tocar la lógica.
@@ -12,7 +12,7 @@ Este proyecto es un script de AutoHotkey v1 para automatizar la pesca de un jueg
 	- `Init()`: calcula `Config.Scale` con la resolución actual y precalcula `Config.Points` escalados desde `Config.PointsBase` (x,y por punto en 1920x1080).
 	- Bucle: `SetTimer` llama `CheckPixelsLogic()` cada `Config.TimerInterval` ms.
 	- Flujo en `CheckPixelsLogic()` (orden): RESET → START (mantener click) → FINISH (soltar y confirmar) → TIMEOUT de seguridad (verifica botón "continuar pescando" antes de recast) → gestión de tensión 100% (release temporal) → minijuego de flechas (A/D).
-	- Logging: `Log(type, msg)` a `AutoFishing_Kamis.log` (en el mismo directorio), activable con `Config.LoggingEnabled`.
+	- Logging: `Log(type, msg)` a `AutoFishing.log` (en el mismo directorio), activable con `Config.LoggingEnabled`.
 
 ### Atajos y controles
 - F9: activar/desactivar automatización (inicia/detiene timer). F10: salida segura (libera estado, apaga timer y cierra).
@@ -39,9 +39,9 @@ Este proyecto es un script de AutoHotkey v1 para automatizar la pesca de un jueg
 - Ajustar tolerancias cuando haya falsos positivos/negativos: incrementa/decrementa `Config.Tolerance.*` en pasos pequeños (2–5). Recuerda que la tolerancia es por canal RGB.
 
 ### Workflows de desarrollo
-- Ejecutar el script: abre con AutoHotkey v1 en Windows y usa F9/F10 para controlar. Para diagnósticos, habilita `Config.LoggingEnabled := true` y lee `AutoFishing_Kamis.log`.
-- Compilar a EXE (opcional): usa Ahk2Exe para obtener `AutoFishing_Kamis.exe`. Luego ejecuta `generateHash.ps1` para actualizar `hash.txt` con el SHA-256 del EXE.
-	- Script: `generateHash.ps1` contiene `(Get-FileHash -Algorithm SHA256 AutoFishing_Kamis.exe).Hash > hash.txt`.
+- Ejecutar el script: abre con AutoHotkey v1 en Windows y usa F9/F10 para controlar. Para diagnósticos, habilita `Config.LoggingEnabled := true` y lee `AutoFishing.log`.
+- Compilar a EXE (opcional): usa Ahk2Exe para obtener `AutoFishing.exe`. Luego ejecuta `generateHash.ps1` para actualizar `hash.txt` con el SHA-256 del EXE.
+	- Script: `generateHash.ps1` contiene `(Get-FileHash -Algorithm SHA256 AutoFishing.exe).Hash > hash.txt`.
 
 ### Convenciones y decisiones importantes
 - Mantener v1: no migrar a AHK v2 ni mezclar estilos (las etiquetas/timers y `Send,` son v1).
@@ -56,6 +56,6 @@ Este proyecto es un script de AutoHotkey v1 para automatizar la pesca de un jueg
 - DPI/escala de Windows: el script usa coordenadas de pantalla; mantener la referencia de 1920x1080 y el escalado interno minimiza problemas, pero puntos/colores pueden requerir reajuste si cambia la UI del juego.
 
 ### Archivos relevantes
-- `AutoFishing_Kamis.ahk`: lógica completa (config, timer, flujos, utilidades, logs).
+- `AutoFishing.ahk`: lógica completa (config, timer, flujos, utilidades, logs).
 - `generateHash.ps1`: genera `hash.txt` con hash SHA-256 del EXE compilado.
 - `hash.txt`: salida de hash publicada.

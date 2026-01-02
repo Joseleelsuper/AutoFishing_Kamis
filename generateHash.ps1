@@ -1,1 +1,1 @@
-(Get-FileHash -Algorithm SHA256 AutoFishing_Kamis.exe).Hash > hash.txt
+(Get-FileHash -Algorithm SHA256 AutoFishing.exe).Hash > hash.txt

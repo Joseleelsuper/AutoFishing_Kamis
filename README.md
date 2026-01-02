@@ -12,7 +12,7 @@ Lo único que tienes que hacer es ponerte en la zona de pesca y:
 
 Tiene soporte para cambiar la caña automáticamente, pero es necesario tener cebos o cañas de antemano.
 
-Podéis descargar la última versión aquí: https://github.com/Joseleelsuper/AutoFishing_Kamis/releases/latest
+Podéis descargar la última versión aquí: https://github.com/Joseleelsuper/AutoFishing/releases/latest
 
 Para ejecutar el fichero .ahk necesitarás tener instalado [AutoHotkey v1.1.37.02](https://github.com/AutoHotkey/AutoHotkey/releases/tag/v1.1.37.02)
 
